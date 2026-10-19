@@ -17,18 +17,18 @@ resources:
 # CI에서 Git 커밋별 이미지 태그로 변경할 위치
 images:
   - name: 193644343848.dkr.ecr.ap-northeast-2.amazonaws.com/member-service
-    newTag: e2d12028815781acdd91584599ade4bd17540ca6
-    digest: sha256:4870441371566bb96a6390da33de83589586fae6cc25f425bb794290584472f4
+    newTag: 94915e5c8eb56143ab556b0136396ba9fc95eec2
+    digest: sha256:48db18f22e34bc79b3e648e4d6782e82d9ba97017f5364e6f01940621d32b7ff
   - name: 193644343848.dkr.ecr.ap-northeast-2.amazonaws.com/product-service
-    newTag: e2d12028815781acdd91584599ade4bd17540ca6
-    digest: sha256:f3ff6c151435a08ef949e58b313981d308f220ed0b302107728b4c3b500f8d2a
+    newTag: 94915e5c8eb56143ab556b0136396ba9fc95eec2
+    digest: sha256:208f17423efd6a43e5e2da432b6da16085f77a07095fb47d2181bfde5b3de300
   - name: 193644343848.dkr.ecr.ap-northeast-2.amazonaws.com/ordering-service
-    newTag: e2d12028815781acdd91584599ade4bd17540ca6
-    digest: sha256:32bbf3b67d917a7709f60306987a0dc2b83900dcb973553564ff7862e89854f7
+    newTag: 94915e5c8eb56143ab556b0136396ba9fc95eec2
+    digest: sha256:a8633cf40cff1e86898b0ab998cfc2d9d7bc9498d56fdd5d6805150a8c9a5846
   - name: 193644343848.dkr.ecr.ap-northeast-2.amazonaws.com/apigateway
-    newTag: e2d12028815781acdd91584599ade4bd17540ca6
-    digest: sha256:5d501e6275e5b5c230d761a5ab71c7e13cbbf9ea00cb23b36b77b3a375c80887
+    newTag: 94915e5c8eb56143ab556b0136396ba9fc95eec2
+    digest: sha256:76a46d6b792ee533e13619fbcac6f193b1e7c59153eb92730ad0f510048326ee
   - name: 193644343848.dkr.ecr.ap-northeast-2.amazonaws.com/frontend-service
-    newTag: e2d12028815781acdd91584599ade4bd17540ca6
-    digest: sha256:02e86ee7b5e00af6fbd76782d9e226d94ea0e2598dd1f382b457f007a1e25bd0
+    newTag: 94915e5c8eb56143ab556b0136396ba9fc95eec2
+    digest: sha256:0b87bbb968318706fffc1a330389642a7adf03dcc9dfec67f0544ba182278d30
 
