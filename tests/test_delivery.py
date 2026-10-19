@@ -56,8 +56,12 @@ class DeliveryTests(unittest.TestCase):
         with self.assertRaises(ValueError):release.pin(original,'frontend',sha,'bad')
     def test_tag_update_does_not_keep_previous_digest(self):
         original=(ROOT/'app/msa/kustomization.yaml').read_text(encoding='utf-8')
-        pinned=release.pin(original,'frontend','b'*40,'sha256:'+'a'*64)
-        self.assertNotIn('digest: ',release.update(pinned,['frontend'],'c'*40))
+        pinned=release.pin(original,'product','d'*40,'sha256:'+'e'*64)
+        pinned=release.pin(pinned,'frontend','b'*40,'sha256:'+'a'*64)
+        updated=release.update(pinned,['frontend'],'c'*40)
+        self.assertNotIn('sha256:'+'a'*64,updated)
+        self.assertIn('sha256:'+'e'*64,updated)
+        self.assertIn('/frontend-service\n    newTag: '+'c'*40,updated)
     def test_deployment_must_match_images_generation_and_replicas(self):
         expected=[{'metadata':{'name':'frontend-depl'},'spec':{'template':{'spec':{'containers':[{'image':'repo@sha256:good'}]}}}}]
         actual={'items':[{'metadata':{'name':'frontend-depl','generation':2},'spec':{'replicas':2,'template':{'spec':{'containers':[{'image':'repo@sha256:good'}]}}},'status':{'observedGeneration':2,'updatedReplicas':2,'availableReplicas':2,'replicas':2}}]}

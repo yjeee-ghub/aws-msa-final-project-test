@@ -19,7 +19,7 @@ try {
         type = 'Opaque'
         data = @{
             'admin-password' = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($passwordText))
-            'admin-email' = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('yoonjonung429@gmail.com'))
+            'admin-email' = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('yoonjoung429@gmail.com'))
         }
     }
     $secret | ConvertTo-Json -Depth 5 -Compress | kubectl apply --server-side --field-manager=final-admin-setup -f -

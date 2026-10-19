@@ -14,7 +14,8 @@ jobs:
   verify:
     # 이 저장소의 기준은 main입니다. AWS 환경·조회 역할·네트워크 준비 후 ENABLE_DEPLOY_CHECKS를 켭니다.
     if: github.ref == 'refs/heads/main' && vars.ENABLE_DEPLOY_CHECKS == 'true'
-    runs-on: ubuntu-latest
+    # Protected main; start the ephemeral VPC runner before checks.
+    runs-on: [self-hosted, linux, x64, deploy-check]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
@@ -26,6 +27,17 @@ jobs:
       - uses: azure/setup-kubectl@v4
         with:
           version: 'v1.35.0'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install AWS CLI in isolated runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.36.45.zip" -o "$RUNNER_TEMP/awscli.zip"
+          unzip -q "$RUNNER_TEMP/awscli.zip" -d "$RUNNER_TEMP/awscli-install"
+          "$RUNNER_TEMP/awscli-install/aws/install" -i "$RUNNER_TEMP/aws-cli" -b "$RUNNER_TEMP/aws-bin"
+          echo "$RUNNER_TEMP/aws-bin" >> "$GITHUB_PATH"
       - run: python3 -m pip install 'PyYAML==6.0.3'
       - run: aws eks update-kubeconfig --region ap-northeast-2 --name Final-eks
       - name: Verify version and function
