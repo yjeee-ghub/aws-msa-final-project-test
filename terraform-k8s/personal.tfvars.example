@@ -1,0 +1,7 @@
+# 개인 저장소 yjeee-ghub/aws-msa-final-project-test의 main을 사용합니다.
+github_repo_url = "https://github.com/yjeee-ghub/aws-msa-final-project-test.git"
+# infra를 먼저 적용하고 ESO/DB Secret Ready를 확인한 뒤 app sync를 켜세요.
+github_revision = "main"
+app_secret_revision = 2
+enable_app_sync = false
+enable_management_ingress = false
