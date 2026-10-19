@@ -1,5 +1,6 @@
 """선택 누락과 엉뚱한 이미지 태그 변경을 막는 회귀 테스트입니다."""
 import importlib.util
+import re
 from pathlib import Path
 import unittest
 
@@ -34,9 +35,22 @@ class CiTests(unittest.TestCase):
 
     def test_update_only_selected_images(self):
         original = Path("app/msa/kustomization.yaml").read_text(encoding="utf-8")
-        updated = tags.update(original, ["member", "frontend"], "test-123")
-        self.assertEqual(updated.count("newTag: test-123"), 2)
-        self.assertEqual(sum(a != b for a, b in zip(original.splitlines(), updated.splitlines())), 2)
+        # Real release manifests may already contain immutable digests.
+        # Selected entries lose their previous digest; unrelated entries must stay byte-identical.
+        def entries(text):
+            return {block.splitlines()[0]: block for block in text.split("images:\n", 1)[1].split("  - name: ")[1:]}
+        for fixture in (original, re.sub(r"(?m)^    digest: [^\n]+\n?", "", original)):
+            with self.subTest(pinned="digest: " in fixture):
+                updated = tags.update(fixture, ["member", "frontend"], "test-123")
+                self.assertEqual(updated.count("newTag: test-123"), 2)
+                before, after = entries(fixture), entries(updated)
+                self.assertEqual(before.keys(), after.keys())
+                for name in before:
+                    if name.endswith(("/member-service", "/frontend-service")):
+                        self.assertIn("newTag: test-123", after[name])
+                        self.assertNotIn("digest: ", after[name])
+                    else:
+                        self.assertEqual(after[name], before[name])
         with self.assertRaises(ValueError):
             tags.update(original, ["member"], "bad/tag")
         with self.assertRaises(ValueError):
