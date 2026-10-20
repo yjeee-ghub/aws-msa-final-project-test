@@ -59,6 +59,7 @@ resource "helm_release" "monitoring" {
         }
         } : {}, {
         # 기존 Grafana EBS와 같은 2c 그룹 사용
+        persistence  = var.grafana_existing_claim == null ? {} : { existingClaim = var.grafana_existing_claim }
         nodeSelector = local.use_zonal_monitoring ? { "final-node-pool" = "az-c" } : {}
         affinity     = local.use_zonal_monitoring ? local.monitoring_anti_affinity : null
       })

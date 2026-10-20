@@ -39,3 +39,11 @@ variable "manage_db_password" {
   type    = bool
   default = true
 }
+
+
+# Overnight rebuild: null creates an empty database; a snapshot preserves existing data.
+variable "db_snapshot_identifier" {
+  description = "Optional RDS snapshot to restore when recreating the DB. Keep this value after restoration."
+  type        = string
+  default     = null
+}

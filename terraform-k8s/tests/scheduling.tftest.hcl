@@ -81,3 +81,19 @@ run "zonal_scheduling" {
   }
 
 }
+
+
+run "restored_grafana_claim" {
+  command = plan
+  variables {
+    grafana_existing_claim = "monitoring-grafana"
+  }
+  assert {
+    condition     = yamldecode(helm_release.monitoring.values[1]).grafana.persistence.existingClaim == "monitoring-grafana"
+    error_message = "A restored Grafana PVC must be reused by Helm instead of recreated."
+  }
+  assert {
+    condition     = yamldecode(helm_release.monitoring.values[1]).grafana.nodeSelector["final-node-pool"] == "az-c"
+    error_message = "Restored Grafana storage must keep the configured node zone."
+  }
+}

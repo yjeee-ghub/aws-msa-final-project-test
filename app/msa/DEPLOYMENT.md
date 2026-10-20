@@ -1,15 +1,10 @@
-# 배포 안내
+# 앱 배포 안내
 
-현재 운영 도구는 `terraform-k8s`로 관리하고 앱은 Argo CD가 배포한다.
+앱 배포는 main의 이미지 digest 선언을 Argo CD가 반영하는 방식입니다.
 
-이 문서에 있던 초기 수동 Helm 설치 명령은 현재 구성과 달라 제거했다. 같은 도구를 중복 설치하지 않도록 아래 문서를 기준으로 확인한다.
+- [코드·이미지·승인·배포 전체 흐름](../../docs/02-deployment.md)
+- [콘솔과 PowerShell로 구축·실행](../../docs/learning/STUDY-NOTES.md)
+- [내부 검증 러너와 권한](../../docs/14-security-and-verification.md)
+- [롤백 PR](../../docs/ROLLBACK.md)
 
-- [프로젝트 구성](../../docs/01-architecture.md)
-- [배포 자동화](../../docs/02-deployment.md)
-- [앱 기능 설정 절차](APP-FEATURES.md)
-
-AWS 인프라 → EKS 내부 구성과 이미지·Secret 준비 → 앱 배포 → ALB 확인 후 DNS 연결 순으로 진행한다. 비밀번호·토큰·Terraform 상태 파일은 저장소에 올리지 않는다.
-
-## 개선 코드 적용 안내
-
-`test` 브랜치 개선 사항의 초기 구축·재구축·삭제 순서는 [월요일 PowerShell 실행 안내](../../docs/06-monday-runbook.md)를 기준으로 진행합니다. main 반영과 실제 AWS 적용은 별도 작업입니다.
+`app/msa/legacy`와 참고용 수동 설치 YAML을 현재 Helm·Terraform 구성과 중복 적용하지 않습니다. 앱의 적용 대상은 [kustomization.yaml](kustomization.yaml)입니다.

@@ -1,89 +1,66 @@
 # 프로젝트 구성
 
-시스템 엔지니어 관점에서 AWS에 서비스를 올리고, 배포와 장애 상황을 직접 확인해보고 싶었다. 앱은 회원·상품·주문 기능이 있는 간단한 쇼핑몰로 구성했다.
+이 프로젝트는 **사용자 요청, 앱 실행, 데이터 저장, 배포·운영**을 구분해 구성합니다. 쇼핑몰은 운영을 검증하기 위한 실제 서비스이며, 주요 학습 대상은 AWS 인프라와 DevOps 작업 흐름입니다.
 
-처음에는 서비스 이름이 많아서 헷갈렸는데, **접속을 받는 부분·앱이 실행되는 부분·데이터를 저장하는 부분**으로 나누니 이해하기 편했다.
-
-## 전체 구성도
-
-![AWS EKS 프로젝트 구성도](images/architecture.png)
-
-[확대 가능한 SVG 원본](images/architecture.svg)
-
-## 사용자가 홈페이지에 들어오면
+## 사용자 요청이 이동하는 경로
 
 ```text
-사용자가 도메인에 접속
-  → ALB가 요청을 받음
-  → EKS 안의 프런트엔드 또는 API Gateway로 전달
-  → 회원·상품·주문 서비스가 요청 처리
-  → 필요한 데이터를 RDS에서 조회·저장
+사용자 → Route 53 → 공유 ALB의 HTTPS 리스너
+                         ├─ server.aws-yjeee.com → frontend / apigateway
+                         │                              ├─ member
+                         │                              ├─ product → S3 이미지
+                         │                              └─ ordering
+                         │                                  ↓
+                         │                           비공개 RDS MySQL
+                         ├─ argocd.aws-yjeee.com → Argo CD
+                         └─ grafana.aws-yjeee.com → Grafana
 ```
 
-**Route 53**은 도메인을 접속할 대상과 연결하는 DNS 서비스다. **ACM**은 HTTPS에 필요한 인증서를 관리한다. 이 둘을 사용해 도메인으로 HTTPS 접속할 수 있게 했다.
+Route 53은 주소를 찾도록 돕는 DNS입니다. ALB는 들어온 도메인·경로에 따라 대상 서비스를 선택하는 로드밸런서입니다. API Gateway는 여기서는 AWS API Gateway 제품이 아니라 **EKS에 실행하는 Spring 기반 apigateway 앱**을 뜻합니다.
 
-**ALB**는 외부에서 들어온 요청을 알맞은 서비스로 전달하는 입구 역할이다. ALB 하나에서 웹사이트·Grafana·Argo CD의 도메인을 구분하도록 구성했다.
+## 네트워크와 실행 환경
 
-## 앱은 어디서 실행될까?
+| 용어 | 뜻 | 배치 |
+| --- | --- | --- |
+| VPC | AWS에서 구성하는 전용 네트워크 | `10.42.0.0/16` |
+| 서브넷 | VPC를 나눈 IP 공간 | 퍼블릭·앱·DB 각각 2개 |
+| AZ | 같은 리전 안의 분리된 가용 영역 | 서울 2a·2c |
+| 퍼블릭 서브넷 | 인터넷 게이트웨이 경로가 있는 영역 | ALB·NAT |
+| 프라이빗 앱 서브넷 | 노드가 공인 IP 없이 실행되는 영역 | EKS 노드·앱 Pod |
+| DB 서브넷 | 데이터베이스용 영역 | 외부 공개하지 않는 RDS |
+| NAT Gateway | 내부 자원의 인터넷 발신을 중계 | 이미지·패키지·GitHub 접근 등에 사용 |
+| 노드 / Pod | 서버 / 서버 위의 컨테이너 실행 단위 | EKS가 관리 |
 
-**EKS**는 AWS에서 사용하는 Kubernetes 서비스다. Kubernetes는 컨테이너로 실행하는 앱을 배치하고 원하는 개수로 유지하는 등의 일을 한다.
+AZ별 노드 그룹은 2a에 최소·최대 2대, 2c에 최소 2대·최대 3대입니다. 기본 4대에서 최대 5대로 확장합니다. EBS 디스크의 AZ 제약을 고려해 모니터링의 배치 영역과 확장 여유를 맞춥니다.
 
-- **노드:** 앱이 실행되는 서버. 이번에는 EC2를 사용했다.
-- **파드:** Kubernetes에서 컨테이너를 실행하는 단위. 회원·상품·주문 등의 앱을 파드로 실행했다.
+## 배포와 인프라의 관리 주체
 
-앱 파드가 종료되면 새 파드를 만들어 원하는 개수를 맞추도록 구성했다. 다만 파드가 만들어졌다고 바로 요청을 받을 준비가 된 것은 아니므로 Ready 상태와 실제 접속도 확인했다.
+| 관리 주체 | 담당 | 이유 |
+| --- | --- | --- |
+| Terraform bootstrap | state 보관 S3 | 운영 인프라와 별도로 보관 |
+| Terraform AWS 루트 | VPC·EKS·RDS·IAM·ECR·SNS/SQS·Lambda·인증서·DNS 등 | 의존성과 변경 계획 관리 |
+| Terraform Kubernetes 루트 | Helm 도구·Secret·RBAC·관리 Ingress·Argo Application | 클러스터 준비 후 설치 |
+| Argo CD | `app/msa`의 앱 배포 선언 | Git과 실제 앱 상태를 동기화 |
+| AWS 콘솔 | 도메인 위임·메일 인증·상태 관찰 등 | 사람이 확인해야 하는 계정·인증 작업 |
 
-## 네트워크를 나눈 이유
+같은 리소스를 콘솔과 Terraform에서 각각 새로 만들지 않습니다. 콘솔에서 만든 자원을 Terraform 소유로 바꾸려면 해당 resource 주소로 import해야 합니다. [직접 구축 순서](learning/STUDY-NOTES.md)
 
-**VPC**는 프로젝트에서 사용하는 AWS 네트워크다. 이 안을 용도별 작은 네트워크인 **서브넷**으로 나눴다.
+## 도메인에 CNAME과 Alias가 함께 있는 이유
 
-| 위치 | 넣은 구성 |
-| --- | --- |
-| 퍼블릭 서브넷 | 인터넷 요청을 받는 ALB와 외부 통신용 NAT Gateway |
-| 프라이빗 서브넷 | 앱을 실행하는 EKS 노드 |
-| DB 서브넷 | RDS 데이터베이스 |
+| 레코드 | 예시 | 담당 |
+| --- | --- | --- |
+| ACM 인증 CNAME | `_문자.server.aws-yjeee.com` → `…acm-validations.aws` | 도메인 소유 확인·인증서 자동 갱신 |
+| A 레코드의 Alias | `server.aws-yjeee.com` → 공유 ALB | 실제 접속 주소 연결 |
 
-**가용 영역(AZ)**은 한 리전 안에서 나뉜 인프라 영역이다. 서울 리전의 2a·2c를 사용했고, 노드 그룹도 영역별로 나눴다. **노드 그룹**은 같은 설정으로 관리할 노드들을 묶은 것이다.
+인증 CNAME은 인증서 발급 후에도 유지합니다. ALB 주소를 읽는 DNS 리소스는 ALB가 생성된 다음 활성화합니다. [AWS ACM 설명](https://docs.aws.amazon.com/acm/latest/userguide/dns-validation.html)
 
-프라이빗 노드가 인터넷으로 나갈 때는 NAT Gateway를 사용한다. 실습 비용을 고려해 NAT는 하나, RDS는 대기 인스턴스가 없는 Single-AZ로 구성했다.
+## 데이터·메시징·운영 경로
 
-## 데이터는 어디에 저장할까?
+- RDS 비밀번호: RDS → Secrets Manager → External Secrets → 앱 Secret.
+- 주문 메일: 주문 DB·Outbox → 주문 SNS → SQS → Lambda → SES. DynamoDB는 이벤트의 메일 처리 상태를 보관합니다.
+- 운영 알림: Prometheus·Alertmanager 또는 CloudWatch·노드 이벤트 → 운영 SNS → 구독 이메일.
+- 배포 검사: VPC 내부 일회용 러너 → EKS·Argo 상태 조회 + HTTPS 기능 검사.
 
-| 서비스 | 저장한 데이터 |
-| --- | --- |
-| RDS MySQL | 회원·상품·주문 데이터 |
-| S3 | 상품 이미지·CloudTrail 로그·Terraform state를 별도 버킷에 보관 |
-| EBS | Prometheus·Grafana·Alertmanager가 사용하는 데이터 |
+상품 이미지는 S3의 `products/` 객체를 공개 읽기하도록 구성합니다. state·CloudTrail 버킷과 동일한 공개 정책을 사용하지 않습니다. RDS와 Secret은 외부 공개 대상이 아닙니다.
 
-**EBS는 서버에 연결해서 사용하는 디스크**라고 생각하면 된다. 파드 안에만 데이터를 저장하지 않고 별도 디스크에 보관해, 파드가 교체돼도 기존 데이터를 이어서 사용하도록 했다.
-
-Kubernetes에서는 **PVC라는 저장 공간 요청**을 만들고, **EBS CSI 드라이버**가 실제 디스크 생성과 연결을 처리한다.
-
-```text
-파드 → PVC로 저장 공간 사용 → EBS에 데이터 보관
-```
-
-기존 PVC와 EBS가 유지되어야 데이터를 이어서 사용할 수 있다. EBS는 특정 가용 영역에 속하기 때문에 파드를 옮길 때도 그 영역에 실행할 노드가 있는지 확인해야 했다.
-
-## 코드는 어떻게 나눴는지
-
-**Terraform은 인프라 설정을 코드로 작성하고 적용하는 도구**다. AWS 인프라와 EKS 내부 구성을 나누고, state 버킷은 별도로 관리했다.
-
-- `terraform-state-bootstrap`: state를 보관할 S3 버킷을 별도로 준비
-- `terraform`: VPC·EKS·RDS·IAM 등 AWS 인프라
-- `terraform-k8s`: EKS 내부 컨트롤러와 운영 도구 설치
-- `app/msa`: 앱 코드와 배포 설정 파일
-
-EKS가 먼저 있어야 내부 도구도 설치할 수 있다. 앱 변경은 Argo CD가 Git에 저장한 설정을 기준으로 반영한다.
-
-## 원격 state는 무엇일까?
-
-Terraform의 **state는 어떤 자원을 만들어 관리하고 있는지 적어둔 기록**이다. 코드만 복사하는 것과 실제 관리 기록을 공유하는 것은 다르다.
-
-AWS 인프라와 EKS 내부 구성의 state를 S3의 서로 다른 경로에 저장했다. 여러 PC에서 같은 기록을 사용하고, 누군가 적용하는 동안 다른 실행이 동시에 수정하지 못하도록 잠금도 사용한다. 버전 관리는 이전 기록을 남기는 기능이다.
-
-이 버킷은 프로젝트 삭제 시 함께 지우지 않도록 분리했다. 원격 state가 Git 코드나 비밀번호, 채팅 기록까지 동기화하는 것은 아니다.
-
----
-
-[프로젝트 홈](../README.md) · [다음: 배포 자동화](02-deployment.md)
+[홈](../README.md) · [다음: 배포 흐름](02-deployment.md)
