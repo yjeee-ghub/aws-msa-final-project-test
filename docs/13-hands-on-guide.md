@@ -1,0 +1,3 @@
+# 문서 위치 안내
+
+이 내용은 [STUDY-NOTES.md](learning/STUDY-NOTES.md)에서 관리합니다. [프로젝트 홈](../README.md)에서 현재 문서 목록을 확인하세요.

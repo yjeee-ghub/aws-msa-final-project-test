@@ -94,6 +94,9 @@ resource "helm_release" "cluster_autoscaler" {
     })
   ]
 
+  # This chart also creates a Service handled by the ALB admission webhook.
+  depends_on = [helm_release.load_balancer_controller]
+
   # CA 파드 준비까지 대기
   wait    = true
   timeout = 600

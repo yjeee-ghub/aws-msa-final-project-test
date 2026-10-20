@@ -1,62 +1,31 @@
-> **현재 main의 승인 배포:** digest와 release.json을 함께 복구해야 합니다. 아래 과거 태그 수동 변경 대신 [새 복구 PR 절차](11-delivery.md#5-배포-후-확인과-롤백)를 우선 사용하세요. DB 호환성 검토 후 병합합니다.
+# 승인 PR로 이전 이미지 복구
 
-# 이전 배포로 돌아가기
+롤백은 이전 정상 이미지로 앱을 되돌리는 작업입니다. 이 프로젝트에서는 Git의 배포 선언이 기준이므로 **이미지 digest와 release.json을 함께 바꾸는 PR**을 만듭니다.
 
-새 버전에 문제가 생겼을 때 이전에 쓰던 버전으로 되돌리는 것을 **롤백**이라고 한다.
+## 실행 전 조건
 
-내 프로젝트에서는 실행할 이미지 버전을 Git에 적어두고 Argo CD가 반영한다. 따라서 이전 버전으로 돌아갈 때도 Git의 이미지 태그를 바꾸는 방식을 사용한다.
+1. 이전 정상 배포 commit에 5개 서비스의 release.json이 있어야 합니다.
+2. 해당 digest의 이미지가 현재 계정 ECR에 남아 있어야 합니다.
+3. DB 스키마·API·환경변수의 이전 이미지 호환성을 검토합니다.
+4. 작업 트리가 깨끗하고 AWS ECR 조회·gh 인증이 준비돼 있어야 합니다.
 
-## 어디를 바꾸면 될까?
-
-`app/msa/kustomization.yaml`의 `newTag`가 사용할 이미지 버전이다.
-
-```yaml
-images:
-  - name: 193644343848.dkr.ecr.ap-northeast-2.amazonaws.com/frontend-service
-    newTag: 58ab067dd239160afc60941cf14aee5830ca5840
-```
-
-위 코드는 프런트엔드의 예시다. 어떤 버전인지 확인할 때는 [배포 이력](RELEASES.md)을 보면 된다.
-
-## 4차에서 3차로 돌아가려면
-
-이번에는 화면·회원 서비스·Gateway를 함께 바꿨다. 앱 전체를 이전 배포로 돌리려면 Kustomize 파일에 있는 **다섯 서비스의 newTag를 모두 아래 값으로 맞춘다.**
-
-```text
-58ab067dd239160afc60941cf14aee5830ca5840
-```
-
-이것은 4차 대시보드 이전인 3차 배포 이미지다. 태그를 수정한 뒤에는 파일을 Git에 반영한다.
+현재 저장소에 정상 릴리스가 하나뿐이면 바로 돌아갈 다른 검증 버전은 아직 없는 것입니다. 임의의 과거 SHA를 넣지 않습니다.
 
 ```powershell
 Set-Location 'C:\aws-msa-final-project-test'
-git diff -- app/msa/kustomization.yaml
-git add app/msa/kustomization.yaml
-git commit -m "Roll back app images to the previous release"
-git push origin main
+git status --short
+git fetch origin main
+git log origin/main --oneline -- deploy/release.json
+$releaseCommit = Read-Host '복구할 정상 배포 commit 40자리'
+python scripts/ops/rollback_release.py --release-commit $releaseCommit
 ```
 
-```text
-Git에서 이전 이미지 태그로 변경
-  → Argo CD가 변경 확인
-  → ECR에 있는 이전 이미지로 파드 교체
-```
+스크립트가 ECR 이미지 존재를 확인하고 현재 origin/main에서 새 브랜치를 만듭니다. 이미지 선언과 release.json을 수정해 PR을 생성합니다. PR 생성 권한은 변경·병합 승인 권한과 별개입니다.
 
-현재 workflow에서는 Kustomize 태그만 바꾸면 이미지 빌드를 다시 실행하지 않는다. ECR에 저장돼 있는 이미지를 사용한다.
+## 승인 후 확인
 
-## 되돌아갔는지 확인
+팀원이 DB 호환성과 영향 범위를 확인하고 필수 검사·리뷰를 거쳐 병합합니다. 새 내부 러너를 준비하고 Argo revision·이미지·Ready·HTTPS·상품 API를 확인합니다. [배포 검증 실행 순서](learning/STUDY-NOTES.md)
 
-```powershell
-kubectl get applications -n argocd
-kubectl get pods -n soldesk
-```
+`kubectl rollout undo`만 실행하면 Argo CD self-heal이 Git 상태로 다시 맞출 수 있습니다. Git 선언을 변경하는 승인 절차를 사용합니다. 이 스크립트는 DB 복원·Terraform 되돌리기·자동 병합을 수행하지 않습니다.
 
-Argo CD의 Synced는 Git 설정과 동기화됐다는 뜻이고, Healthy는 Argo CD가 판단한 앱 상태가 정상이라는 뜻이다. 새로 교체된 파드가 Ready인지 보고 홈페이지도 직접 확인한다.
-
-## 알아둘 점
-
-- Git 기록에 태그가 있어도 ECR에서 이미지를 삭제했다면 그대로 사용할 수 없다. 필요한 이미지가 없다면 과거 소스로 다시 빌드해야 한다.
-- `kubectl rollout undo`만 실행하면 Argo CD가 Git의 새 버전으로 다시 맞출 수 있다. 유지할 변경은 Git에도 남긴다.
-- 이번 대시보드는 DB 구조를 바꾸지 않았다. DB 구조나 설정도 변경한 배포는 이미지와 함께 호환성을 확인한다. 코드 변경 자체를 되돌릴 때는 `git revert`를 검토한다.
-
-[프로젝트 홈](../README.md)
+[홈](../README.md) · [배포 흐름](02-deployment.md)

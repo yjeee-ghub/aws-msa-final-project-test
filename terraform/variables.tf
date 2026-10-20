@@ -166,3 +166,11 @@ variable "github_oidc_subject" {
     error_message = "최종 저장소의 main 브랜치에 해당하는 정확한 OIDC subject를 입력하세요."
   }
 }
+
+
+# Overnight rebuild: null creates an empty database; a snapshot preserves existing data.
+variable "db_snapshot_identifier" {
+  description = "Optional RDS snapshot to restore when recreating the DB. Keep this value after restoration."
+  type        = string
+  default     = null
+}

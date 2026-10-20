@@ -115,3 +115,11 @@ variable "internal_service_token" {
     error_message = "내부 서비스 토큰은 32자 이상이어야 합니다."
   }
 }
+
+
+# Use a pre-bound restored PVC without asking Helm to recreate the same claim.
+variable "grafana_existing_claim" {
+  description = "Optional existing Grafana PVC for an overnight snapshot restore."
+  type        = string
+  default     = null
+}

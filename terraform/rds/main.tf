@@ -45,6 +45,8 @@ resource "aws_vpc_security_group_ingress_rule" "mysql_from_eks" {
 
 # 서비스에서 사용할 RDS MySQL
 resource "aws_db_instance" "main" {
+  snapshot_identifier = var.db_snapshot_identifier
+
   identifier = "${lower(var.project_name)}-ordermsa-db"
 
   engine         = "mysql"
